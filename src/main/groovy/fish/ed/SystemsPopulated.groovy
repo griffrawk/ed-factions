@@ -30,6 +30,7 @@ class SystemsPopulated {
 				x: j['x'] as double,
 				y: j['y'] as double,
 				z: j['z'] as double,
+				controlling_minor_faction: j['controlling_minor_faction'],
 			]
 		}
 		log.info "Loaded ${systemNameToSystemData.size()} systems"

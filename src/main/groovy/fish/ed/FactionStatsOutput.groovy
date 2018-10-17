@@ -28,10 +28,11 @@ class FactionStatsOutput {
 		cli.j(required: false, args: 1, 'read system names from input file')
 		cli.g(longOpt: 'showGone', required: false, args: 0, 'Show "Gone" systems (retreated factions that are still appearing in history, default: false)')
 		cli.k(longOpt: 'tickHour', required: false, args: 1, 'Set the system tick hour (UTC) as it keeps drifting. Default: 17 (i.e. 5pm UTC)')
+		cli.c(longOpt: 'showControlling', required: false, args: 0, 'Highlight controlling factions')
 		cli.width = 132
 
 		def options = cli.parse(args)
-		if (!options || options.h || (!options.j && !options.i && !options.f && !options.s)) {
+		if (!options || options.h || (!options.j && !options.i && !options.f && !options.s && !options.k)) {
 			if (options?.h) cli.usage()
 			return
 		}
@@ -46,6 +47,7 @@ class FactionStatsOutput {
 		}
 		boolean showAllFactions = options.a
 		boolean showGoneFactions = options.g
+		boolean showControlling = options.c
 
 		int tickHour = 17
 		if (options.k) {
@@ -53,10 +55,10 @@ class FactionStatsOutput {
 		}
 
 		if (options.f) {
-			new FactionStatsOutput().showFactionStats(options.f as String, today, tickHour, showAllFactions, showGoneFactions)
+			new FactionStatsOutput().showFactionStats(options.f as String, today, tickHour, showAllFactions, showGoneFactions, showControlling)
 		}
 		if (options.s) {
-			new FactionStatsOutput().showSystemStats(options.s as String, today, tickHour, showGoneFactions)
+			new FactionStatsOutput().showSystemStats(options.s as String, today, tickHour, showGoneFactions, showControlling)
 		}
 		if (options.i) {
 			File inFile = new File(options.i as String)
@@ -69,7 +71,7 @@ class FactionStatsOutput {
 			println "Tick Hour: $tickHour\n"
 			inFile.eachLine { String faction ->
 				println "-" * 3
-				outputter.showFactionStats(faction, today, tickHour, showAllFactions, showGoneFactions)
+				outputter.showFactionStats(faction, today, tickHour, showAllFactions, showGoneFactions, showControlling)
 			}
 		}
 		if (options.j) {
@@ -83,7 +85,7 @@ class FactionStatsOutput {
 			println "\nTick Hour: $tickHour"
 			inFile.eachLine { String system ->
 				println "-" * 3
-				outputter.showSystemStats(system, today, tickHour, showGoneFactions)
+				outputter.showSystemStats(system, today, tickHour, showGoneFactions, showControlling)
 			}
 		}
 	}
@@ -97,7 +99,7 @@ class FactionStatsOutput {
 		}
 	}
 
-	def showSystemStats(String name, LocalDate todayDate, int tickHour, boolean showGoneFactions) {
+	def showSystemStats(String name, LocalDate todayDate, int tickHour, boolean showGoneFactions, boolean showControlling) {
 		loadData()
 
 		Map.Entry sd = systemsPopulated.systemInfoFromName(name)
@@ -115,7 +117,7 @@ class FactionStatsOutput {
 
 		println ""
 		if (edsmDataForSystem.size() > 0) {
-			displayFactionsInSystem("", todayDate, true, name, systemData.population as long, edsmDataForSystem)
+			displayFactionsInSystem("", todayDate, true, showControlling, name, systemData.controlling_minor_faction as String, systemData.population as long, edsmDataForSystem)
 		}
 
 	}
@@ -131,7 +133,7 @@ class FactionStatsOutput {
 
 	}
 
-	def showFactionStats(String factionName, LocalDate todayDate, int tickHour, boolean showAllFactions, boolean showGoneFactions) {
+	def showFactionStats(String factionName, LocalDate todayDate, int tickHour, boolean showAllFactions, boolean showGoneFactions, boolean showControlling) {
 		loadData()
 
 		def factionId = factions.findFaction(factionName)
@@ -154,7 +156,7 @@ class FactionStatsOutput {
 		println ""
 		cachedEDSMDataForSystem.each { String systemName, List<Map> edsmDataForSystem ->
 			if (edsmDataForSystem.size() > 0) {
-				displayFactionsInSystem(factionName, todayDate, showAllFactions, systemName, systemsWithFaction[systemName].population as long, edsmDataForSystem)
+				displayFactionsInSystem(factionName, todayDate, showAllFactions, showControlling, systemName, systemsWithFaction[systemName].controlling_minor_faction as String, systemsWithFaction[systemName].population as long, edsmDataForSystem)
 			}
 		}
 
@@ -166,7 +168,7 @@ class FactionStatsOutput {
 		}
 	}
 
-	def displayFactionsInSystem(String factionName, LocalDate todayDate, boolean showAllFactions, String systemName, long population, List<Map> edsmDataForSystem) {
+	def displayFactionsInSystem(String factionName, LocalDate todayDate, boolean showAllFactions, boolean showControlling, String systemName, String controllingFaction, long population, List<Map> edsmDataForSystem) {
 		boolean hasShownMainFaction = false
 		LocalDate fromDate = LocalDate.of(1900, 1, 1)
 		edsmDataForSystem.each { Map factionData ->
@@ -195,8 +197,15 @@ class FactionStatsOutput {
 			float i1 = avg(influenceHistory[d1Date] as List) * 100.0
 			float i2 = avg(influenceHistory[d3Date] as List) * 100.0
 			float i3 = avg(influenceHistory[d7Date] as List) * 100.0
-			def outStr = sprintf('%-30s %-10s %6.2f %6.2f %6.2f %6.2f %s',
-				ss(factionData.name as String, 30),
+			String dispFaction
+			if (factionData.name == controllingFaction && showControlling) {
+				dispFaction = "<" + ss(factionData.name as String, 28) + ">"
+			} else {
+				dispFaction = " " + ss(factionData.name as String, 28) + " "
+			}
+			// always make the deltas signed
+			def outStr = sprintf('%-30s %-10s %6.2f %+6.2f %+6.2f %+6.2f %s',
+				dispFaction,
 				ss(factionData.currentState as String, 10),
 				i0,
 				i0 - i1,
