@@ -77,7 +77,8 @@ Example output
     # ... other systems
 
     Leading/Trailing information for The Order of Mobius
-    Apathaam              [SEP-18] leads by    42.86  -1.04  15.38   3.32
+    Apathaam              [OCT-16] trails by   -3.80  16.00  15.80  11.60
+    Azrael                [OCT-16] leads by     6.51   2.01  15.30   5.91
     # ... other systems
 ```
 ## Showing systems within a range of another system
